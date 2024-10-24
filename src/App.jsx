@@ -4,6 +4,22 @@ import axios from 'axios';
 const TMDB_API_KEY = 'api'; // Replace with your TMDB API key
 const AI_SERVER_URL = 'http://localhost:5000/recommend'; // Adjust with your AI server URL
 
+// Utility function to format release date
+const formatReleaseDate = (releaseDate) =>
+  releaseDate ? releaseDate.split('-')[0] : 'N/A';
+
+// Utility function for fetching movie details
+const fetchMovieDetails = async (movieId) => {
+  try {
+    const response = await axios.get(
+      `https://api.themoviedb.org/3/movie/${movieId}?api_key=${TMDB_API_KEY}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching movie details:', error);
+  }
+};
+
 // Search Bar Component
 const SearchBar = ({ searchQuery, setSearchQuery }) => (
   <input
@@ -15,42 +31,28 @@ const SearchBar = ({ searchQuery, setSearchQuery }) => (
   />
 );
 
+// Tooltip Component
 const Tooltip = ({ movie }) => (
   <div className="absolute top-0 left-full ml-4 w-64 p-4 bg-gray-800 text-white rounded-lg shadow-lg z-50">
     <h3 className="text-lg font-bold">{movie.title}</h3>
     <p className="text-sm text-gray-400">
-      Release Year:{' '}
-      {movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}
+      Release Year: {formatReleaseDate(movie.release_date)}
     </p>
     <p className="text-sm text-yellow-400">
-      Rating: {movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'}
+      Rating: {movie.vote_average?.toFixed(1) || 'N/A'}
     </p>
-    <p className="mt-2 text-sm">
-      {movie.overview ? movie.overview : 'No overview available'}
-    </p>
+    <p className="mt-2 text-sm">{movie.overview || 'No overview available'}</p>
   </div>
 );
 
-const fetchMovieDetails = async (movieId, setMovieDetails) => {
-  try {
-    const response = await axios.get(
-      `https://api.themoviedb.org/3/movie/${movieId}?api_key=${TMDB_API_KEY}`
-    );
-    setMovieDetails(response.data); // Set the full movie details, including overview
-  } catch (error) {
-    console.error('Error fetching movie details:', error);
-  }
-};
-
-// Reusable MovieCard Component with Tooltip
+// MovieCard Component with Tooltip
 const MovieCard = ({ movie, isSelected, onSelect }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [movieDetails, setMovieDetails] = useState(movie); // Default to initial movie data
+  const [movieDetails, setMovieDetails] = useState(movie);
 
   useEffect(() => {
     if (isHovered && !movie.overview) {
-      // Fetch movie details if the overview is missing
-      fetchMovieDetails(movie.id, setMovieDetails);
+      fetchMovieDetails(movie.id).then(setMovieDetails);
     }
   }, [isHovered, movie]);
 
@@ -62,7 +64,7 @@ const MovieCard = ({ movie, isSelected, onSelect }) => {
       className={`relative bg-gray-700 p-6 rounded-lg text-white shadow-lg transform transition duration-300 hover:scale-105 hover:shadow-2xl cursor-pointer ${
         isSelected ? 'ring-4 ring-purple-500' : ''
       }`}
-      style={{ zIndex: isHovered ? 10 : 1 }} // Ensure MovieCard comes to front on hover
+      style={{ zIndex: isHovered ? 10 : 1 }}
     >
       {movie.poster_path && (
         <img
@@ -74,10 +76,10 @@ const MovieCard = ({ movie, isSelected, onSelect }) => {
       <div className="flex flex-col items-start">
         <h3 className="text-lg font-bold mb-1">{movie.title}</h3>
         <p className="text-sm text-gray-400 mb-1">
-          {movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}
+          {formatReleaseDate(movie.release_date)}
         </p>
         <p className="text-sm text-yellow-400">
-          Rating: {movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'}
+          Rating: {movie.vote_average?.toFixed(1) || 'N/A'}
         </p>
       </div>
       {isHovered && <Tooltip movie={movieDetails} />}
@@ -85,7 +87,7 @@ const MovieCard = ({ movie, isSelected, onSelect }) => {
   );
 };
 
-// Selected Movies Component
+// SelectedMovies Component
 const SelectedMovies = ({ selectedMovies, onRemove }) => (
   <div className="mb-8">
     <h2 className="text-xl font-semibold text-white mb-4">Selected Movies</h2>
@@ -93,12 +95,12 @@ const SelectedMovies = ({ selectedMovies, onRemove }) => (
       {selectedMovies.map((movie) => (
         <div
           key={movie.id}
-          onClick={() => onRemove(movie)} // Remove movie when clicked
+          onClick={() => onRemove(movie)}
           className="flex items-center space-x-4 text-white cursor-pointer hover:bg-gray-600 p-2 rounded transition"
         >
           <h3 className="text-lg font-bold">{movie.title}</h3>
           <p className="text-sm text-gray-400">
-            {movie.release_date.split('-')[0]}
+            {formatReleaseDate(movie.release_date)}
           </p>
         </div>
       ))}
@@ -106,6 +108,7 @@ const SelectedMovies = ({ selectedMovies, onRemove }) => (
   </div>
 );
 
+// Recommendations Component
 const Recommendations = ({ recommendations }) =>
   recommendations.length > 0 && (
     <div className="mt-10">
@@ -132,7 +135,7 @@ const fetchMovies = async (searchQuery, setSearchResults) => {
   }
 };
 
-// Helper function for fetching movie recommendations
+// Helper function for fetching recommendations
 const fetchMovieRecommendations = async (
   selectedMovies,
   setRecommendations
@@ -143,7 +146,6 @@ const fetchMovieRecommendations = async (
       parseInt(movie.release_date.split('-')[0]),
     ]);
 
-    // Step 2: Fetch recommendations from AI server
     const response = await axios.post(AI_SERVER_URL, {
       favorite_movies: formattedMovies,
       start_year: 1980,
@@ -153,7 +155,6 @@ const fetchMovieRecommendations = async (
       min_num_votes: 100000,
     });
 
-    // Step 3: Fetch detailed movie data for each recommendation from TMDB
     const recommendationsData = await Promise.all(
       response.data.recommendations.map(async (rec) => {
         const movieSearchResponse = await axios.get(
@@ -161,26 +162,18 @@ const fetchMovieRecommendations = async (
             rec[0]
           )}`
         );
-        const movieData = movieSearchResponse.data.results[0]; // Get the first result
-
-        // Return the detailed movie data
-        return {
-          id: movieData.id,
-          title: movieData.title,
-          release_date: movieData.release_date,
-          poster_path: movieData.poster_path,
-          vote_average: movieData.vote_average,
-          overview: movieData.overview,
-        };
+        const movieData = movieSearchResponse.data.results[0];
+        return movieData;
       })
     );
 
-    setRecommendations(recommendationsData); // Step 4: Update state with full movie details
+    setRecommendations(recommendationsData);
   } catch (error) {
     console.error('Error fetching recommendations:', error);
   }
 };
 
+// Main App Component
 const App = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -195,25 +188,22 @@ const App = () => {
     }
   }, [searchQuery]);
 
-  // Add or remove movies from selected list
   const handleSelectMovie = useCallback((movie) => {
     setSelectedMovies((prevSelected) =>
       prevSelected.find((m) => m.id === movie.id)
         ? prevSelected.filter((m) => m.id !== movie.id)
         : [...prevSelected, movie]
     );
-    setSearchQuery(''); // Clear search input after selecting a movie
+    setSearchQuery(''); // Clear search input
     setSearchResults([]); // Clear search results
   }, []);
 
-  // Remove movie from selected list
   const handleRemoveMovie = useCallback((movie) => {
     setSelectedMovies((prevSelected) =>
       prevSelected.filter((m) => m.id !== movie.id)
     );
   }, []);
 
-  // Clear recommendations
   const handleClearRecommendations = () => {
     setRecommendations([]);
   };
@@ -224,9 +214,7 @@ const App = () => {
         <h1 className="text-4xl font-bold text-center text-white mb-8">
           FilmIQ
         </h1>
-
         <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
           {searchResults.map((movie) => (
             <MovieCard
@@ -237,12 +225,10 @@ const App = () => {
             />
           ))}
         </div>
-
         <SelectedMovies
           selectedMovies={selectedMovies}
           onRemove={handleRemoveMovie}
         />
-
         <button
           onClick={() =>
             fetchMovieRecommendations(selectedMovies, setRecommendations)
@@ -251,7 +237,6 @@ const App = () => {
         >
           Get Recommendations
         </button>
-
         {recommendations.length > 0 && (
           <button
             onClick={handleClearRecommendations}
@@ -260,7 +245,6 @@ const App = () => {
             Clear Recommendations
           </button>
         )}
-
         <Recommendations recommendations={recommendations} />
       </div>
     </div>
