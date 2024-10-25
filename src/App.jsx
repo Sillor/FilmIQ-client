@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { AnimatedBackground } from 'animated-backgrounds';
+import { motion } from 'framer-motion';
 
 const TMDB_API_KEY = 'api';
 const AI_SERVER_URL = 'http://localhost:5000/recommend';
@@ -19,7 +20,7 @@ const SearchBar = ({ searchQuery, setSearchQuery }) => (
 );
 
 const Tooltip = ({ movie }) => (
-  <div className="absolute top-0 left-full ml-4 w-64 p-4 bg-gray-600/60 text-white rounded-lg shadow-lg backdrop-blur-3xl z-50">
+  <div className="absolute top-0 left-full ml-4 w-64 p-4 bg-gray-600/80 text-white rounded-lg shadow-lg backdrop-blur-lg z-50">
     <h3 className="text-lg font-bold">{movie.title}</h3>
     <p className="text-sm text-gray-300">
       Release Year: {formatReleaseDate(movie.release_date)}
@@ -171,9 +172,19 @@ const App = () => {
     <div className="min-h-screen py-10 px-4 relative overflow-hidden">
       <AnimatedBackground animationName="cosmicDust" />
       <div className="relative z-10 max-w-5xl mx-auto bg-white/10 backdrop-blur-lg p-8 rounded-lg shadow-lg">
-        <h1 className="text-4xl font-bold text-center text-white mb-8">
+        <motion.h1
+          className="text-4xl font-bold text-center text-white mb-8"
+          animate={{
+            scale: [1, 1, 1],
+            opacity: [0.8, 1, 0.8],
+          }}
+          transition={{
+            duration: 5,
+            repeat: Infinity,
+          }}
+        >
           FilmIQ
-        </h1>
+        </motion.h1>
         <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
           {searchResults.map((movie) => (
